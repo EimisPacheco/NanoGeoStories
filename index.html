@@ -1,0 +1,1152 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Travel History Visualizer with Flying Camera and AI</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@100;300;400;700&display=swap">
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.30.1/moment.min.js"></script>
+    <script type="importmap">
+    {
+      "imports": {
+        "@google/generative-ai": "https://esm.run/@google/generative-ai"
+      }
+    }
+    </script>
+
+<script>
+(g=>{var h,a,k,p="The Google Maps JavaScript API",c="google",l="importLibrary",q="__ib__",m=document,b=window;b=b[c]||(b[c]={});var d=b.maps||(b.maps={}),r=new Set,e=new URLSearchParams,u=()=>h||(h=new Promise(async(f,n)=>{await (a=m.createElement("script"));e.set("libraries",[...r]+"");for(k in g)e.set(k.replace(/[A-Z]/g,t=>"_"+t[0].toLowerCase()),g[k]);e.set("callback",c+".maps."+q);a.src=`https://maps.${c}apis.com/maps/api/js?`+e;d[q]=f;a.onerror=()=>h=n(Error(p+" could not load."));a.nonce=m.querySelector("script[nonce]")?.nonce||"";m.head.append(a)}));d[l]?console.warn(p+" only loads once. Ignoring:",g):d[l]=(f,...n)=>r.add(f)&&u().then(()=>d[l](f,...n))})({
+  key: "AIzaSyB731okswM5y4CT1onlh6D8_K_WSPTDDLI",
+  v: "alpha",
+  libraries: "places"
+});
+
+
+</script>
+<style>
+    body {
+        font-family: 'Roboto', sans-serif;
+        margin: 0;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        background-color: #f0f0f0;
+    }
+    .app-title {
+        font-size: 24px;
+        font-weight: bold;
+        color: #4CAF50;
+        margin-left: auto;
+        padding: 0 15px;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+    }
+    .toolbar {
+        margin-bottom: 20px;
+        background-color: #ffffff;
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .content {
+        display: flex;
+        flex: 1;
+        gap: 20px;
+    }
+    .table-container {
+        width: 30%;
+        overflow-x: auto;
+        overflow-y: auto;
+        max-height: calc(100vh - 100px);
+        background-color: #ffffff;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .maps-container {
+        width: 70%;
+        height: calc(100vh - 100px);
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+    .map-container, .flying-camera-container {
+        width: 100%;
+        height: calc(50% - 10px);
+        background-color: #ffffff;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        overflow: hidden;
+    }
+    table {
+        border-collapse: separate;
+        border-spacing: 0;
+        width: 100%;
+    }
+    th, td {
+        border: 1px solid #ddd;
+        padding: 12px;
+        text-align: left;
+        white-space: nowrap;
+    }
+    th {
+        background-color: #f8f8f8;
+        font-weight: bold;
+        color: #333;
+        position: sticky;
+        top: 0;
+        z-index: 1;
+    }
+    tr:nth-child(even) {
+        background-color: #f9f9f9;
+    }
+    tr:hover {
+        background-color: #f0f0f0;
+        cursor: pointer;
+    }
+    gmp-map-3d {
+        width: 100%;
+        height: 100%;
+    }
+    .place-details {
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        background: #ffffff;
+        padding: 15px;
+        margin: 20px 0;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    .place-details h2 {
+        color: #333;
+        margin-bottom: 10px;
+    }
+    .place-details p {
+        margin: 5px 0;
+        line-height: 1.4;
+    }
+    .place-details strong {
+        color: #0066cc;
+    }
+    #placeDetailsPopup {
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 20px;
+        transform: translateY(-50%);
+        width: 600px;
+        max-height: 80vh;
+        overflow-y: auto;
+        background-color: #ffffff;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        padding: 20px;
+        z-index: 1000;
+    }
+    .place-details {
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        background: #ffffff;
+        padding: 15px;
+        margin-bottom: 15px;
+    }
+    .place-details h2 {
+        color: #333;
+        margin-bottom: 10px;
+        font-size: 18px;
+    }
+    .place-details p {
+        margin: 5px 0;
+        line-height: 1.4;
+        font-size: 14px;
+    }
+    .place-details strong {
+        color: #0066cc;
+    }
+    button, .close-btn {
+      background-color: #4CAF50; /* Green background */
+      border: none;
+      color: white; /* White text */
+      padding: 10px 20px; /* Button padding */
+      font-size: 16px;
+      border-radius: 4px; /* Rounded corners */
+      cursor: pointer;
+      transition: background-color 0.3s; /* Smooth hover transition */
+    }
+
+    table th:first-child,
+    table td:first-child {
+    max-width: 300px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+    button:hover {
+        background-color: #45a049;
+    }
+    .close-btn {
+    background-color: #4CAF50;
+    border: none;
+    color: white;
+    padding: 10px 20px;
+    font-size: 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.close-btn:hover {
+    background-color: #45a049;
+}
+    select, input[type="number"] {
+        padding: 8px;
+        margin: 4px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+    }
+    .switch {
+        position: relative;
+        display: inline-block;
+        width: 50px;
+        height: 28px;
+        margin-right: 10px;
+    }
+    .switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+    .slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #ccc;
+        transition: .4s;
+        border-radius: 34px;
+    }
+    .slider:before {
+        position: absolute;
+        content: "";
+        height: 20px;
+        width: 20px;
+        left: 4px;
+        bottom: 4px;
+        background-color: white;
+        transition: .4s;
+        border-radius: 50%;
+    }
+    input:checked + .slider {
+        background-color: #4CAF50;
+    }
+    input:checked + .slider:before {
+        transform: translateX(22px);
+    }
+    .toggle-label {
+        margin-right: 10px;
+    }
+    #minDuration {
+        width: 60px;
+    }
+    table th {
+    position: relative;
+}
+
+table th:first-child::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 5px;
+    background: #ccc;
+    cursor: col-resize;
+}
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0,0,0,0.4);
+}
+
+.modal-content {
+    background-color: #fefefe;
+    margin: 15% auto;
+    padding: 20px;
+    border: 1px solid #888;
+    width: 80%;
+    max-width: 500px;
+    border-radius: 5px;
+    text-align: center;
+}
+
+#closeModal {
+    background-color: #4CAF50;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+#closeModal:hover {
+    background-color: #45a049;
+}
+.ai-recommendations {
+    margin-top: 15px;
+}
+
+.ai-recommendations table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.ai-recommendations td {
+    padding: 5px;
+    vertical-align: middle;
+}
+
+.ai-recommendations button {
+    padding: 5px 10px;
+    font-size: 12px;
+}
+.place-details button {
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.place-details button:hover {
+    background-color: #45a049;
+}
+.place-name {
+    font-size: 14px;
+    color: #0066cc;
+}
+
+.place-description {
+    font-size: 12px;
+}
+#recommendationBtn {
+    padding: 10px 20px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+#recommendationBtn:hover {
+    background-color: #45a049;
+}
+
+.recommendation-popup {
+    width: 80%;
+    max-width: 600px;
+}
+
+.recommendation-content {
+    text-align: left;
+}
+
+.close-btn {
+    margin-top: 20px;
+    padding: 5px 10px;
+    background-color: #f44336;
+    color: white;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.close-btn:hover {
+    background-color: #d32f2f;
+}
+
+
+</style>
+</head>
+<body>
+  <div id="welcomeModal" class="modal">
+      <div class="modal-content">
+          <h2 class="app-title"> 🗺️  Welcome to GeoStories!</h2>
+          <a href="https://www.howtogeek.com/725241/how-to-download-your-google-maps-data/"> How to download your personal Google Maps Data</a>
+          <br/>
+          <br/>
+          <a href="https://myaccount.google.com/yourdata/maps?hl=en/"> Download your Personal Google Maps Data</a>
+          <br/>
+          <br/>
+           Click on a row in the table to navigate to the place and see more information and recommendations about where you have been. ✈️ You will fly there.
+          <br/>
+          <br/>
+          <button id="closeModal">Got it!</button>
+      </div>
+  </div>
+    <div class="toolbar">
+        <select id="yearFilter">
+            <option value="all">All Years</option>
+            <!-- Years will be populated here -->
+        </select>
+        <button id="btnImport">Import Data...</button>
+        <input type="file" id="folderInput" style="display: none" webkitdirectory directory multiple />
+        <label for="minDuration">Minimum Duration (minutes):</label>
+        <input type="number" id="minDuration" value="10" min="10">
+        <button id="btnApplyFilter">Apply Filter</button>
+        <label class="switch">
+            <input type="checkbox" id="labelsToggle" checked>
+            <span class="slider"></span>
+        </label>
+        <span class="toggle-label">Labels</span>
+        <label class="switch">
+            <input type="checkbox" id="polygonToggle" checked>
+            <span class="slider"></span>
+        </label>
+        <span class="toggle-label">Polygon</span>
+        <button id="recommendationBtn">Get Travel Recommendations</button>
+        <span class="app-title"> 🗺️  GeoStories</span>
+
+    </div>
+
+    <div class="content">
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th onclick="sortTable(0)">Location</th>
+                        <th onclick="sortTable(1)">Country</th>
+                        <th onclick="sortTable(2)">City</th>
+                        <th onclick="sortTable(3)">Repeat Count</th>
+                        <th onclick="sortTable(4)">Years</th>
+                        <th onclick="sortTable(5)">Longitude</th>
+                        <th onclick="sortTable(6)">Latitude</th>
+                        <th>Selected</th>
+                    </tr>
+                </thead>
+                <tbody id="locationTable"></tbody>
+            </table>
+        </div>
+        <div class="maps-container">
+            <div class="map-container">
+                <gmp-map-3d id="map3d" center="0,-180,15000000">
+                    <gmp-polyline-3d altitude-mode="clamp-to-ground" stroke-color="red" stroke-width="3"></gmp-polyline-3d>
+                </gmp-map-3d>
+            </div>
+
+            <div class="flying-camera-container">
+            </div>
+        </div>
+    </div>
+
+    <div id="placeDetailsPopup">
+        <div id="placeDetailsContent"></div>
+        <button onclick="closePlaceDetailsPopup()" class="close-btn">Close</button>
+    </div>
+
+    <script type="module">
+        let labelsEnabled = true;
+        let polygonEnabled = true;
+        let visitedAddresses = new Set();
+        let visitedAddressesArray = [];
+        import { GoogleGenerativeAI } from "@google/generative-ai";
+
+        // Fetch your API_KEY
+        const API_KEY = "AIzaSyAAKRNFiqoHagv5omCQFVTtLsrqgHrooFg";
+        const genAI = new GoogleGenerativeAI(API_KEY);
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+        let addressData = new Map();
+        const polyline3d = document.querySelector('gmp-map-3d gmp-polyline-3d');
+        const map3d = document.getElementById('map3d');
+        let flyingCamera;
+
+       function updatePolygonVisibility() {
+          const polyline3d = document.querySelector('gmp-map-3d gmp-polyline-3d');
+          if (polyline3d) {
+              if (polygonEnabled) {
+                  polyline3d.setAttribute('stroke-color', 'red');
+              } else {
+                  polyline3d.setAttribute('stroke-color', 'transparent');
+              }
+          }
+      }
+
+        async function initMaps() {
+            const { Map3DElement, Marker3DElement } = await google.maps.importLibrary("maps3d");
+            const { PinElement } = await google.maps.importLibrary("marker");
+
+            // Initialize flying camera
+            flyingCamera = new Map3DElement({
+                center: { lat: 0, lng: 0, altitude: 0 },
+                tilt: 67.5,
+                range: 10000,
+                defaultLabelsDisabled: !labelsEnabled
+            });
+
+            document.querySelector('.flying-camera-container').appendChild(flyingCamera);
+
+            document.getElementById('labelsToggle').addEventListener('change', (e) => {
+                labelsEnabled = e.target.checked;
+                flyingCamera.defaultLabelsDisabled = !labelsEnabled;
+            });
+
+            document.getElementById('polygonToggle').addEventListener('change', (e) => {
+                polygonEnabled = e.target.checked;
+                updatePolygonVisibility();
+            });
+
+            updatePolygonVisibility();
+
+            // Get user's location and initialize maps
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const lat = position.coords.latitude;
+                        const lng = position.coords.longitude;
+                        initMap(lat, lng);
+                        flyToLocation(lat, lng);
+
+                        // Create and add the marker to the flying camera
+                        const markerWithLabel = new Marker3DElement({
+                            position: { lat: lat, lng: lng },
+                            label: 'You are here'
+                        });
+
+                        // Change the background color
+                        const pinBackground = new PinElement({
+                            background: '#5DADE2',
+                            borderColor: '#EBEDEF',
+                            glyphColor: 'white'
+                        });
+
+                        markerWithLabel.append(pinBackground);
+                        flyingCamera.append(markerWithLabel);
+                    },
+                    (error) => {
+                        console.warn("Geolocation error:", error);
+                        initMap(39.8283, -98.5795); // Center of the US
+                        flyToLocation(39.8283, -98.5795);
+                    }
+                );
+            } else {
+                console.warn("Geolocation is not supported by this browser.");
+                initMap(39.8283, -98.5795); // Center of the US
+                flyToLocation(39.8283, -98.5795);
+            }
+        }
+
+        function initMap(lat, lng) {
+            customElements.whenDefined('gmp-map-3d').then(() => {
+                map3d.setAttribute('center', `${lat},${lng},15000000`);
+            });
+        }
+
+        function flyToLocation(lat, lng) {
+            const flyToCamera = {
+                center: { lat: lat, lng: lng, altitude: 200},
+                tilt: 55,
+                range: 1000
+            };
+
+            flyingCamera.flyCameraTo({
+                endCamera: flyToCamera,
+                durationMillis: 6000,
+            });
+
+            flyingCamera.addEventListener('gmp-animationend', () => {
+                flyingCamera.flyCameraAround({
+                    camera: flyToCamera,
+                    durationMillis: 100000,
+                    rounds: 3
+                });
+            }, { once: true });
+        }
+        
+        // Call initMaps when the page loads
+        initMaps();
+        // Populate year filter
+        const yearFilter = $("#yearFilter");
+        for (let year = 2024; year >= 2014; year--) {
+            yearFilter.append(`<option value="${year}">${year}</option>`);
+        }
+
+        $("#btnImport").on('click', () => {
+            addressData.clear();
+            $("#locationTable").empty();
+            $("#folderInput").val('');
+            $("#folderInput").click();
+        });
+
+        $("#folderInput").on('change', (event) => {
+            const files = Array.from($("#folderInput")[0].files);
+            const selectedYear = $("#yearFilter").val();
+            const jsonFiles = files.filter(file => {
+                return file.name.endsWith('.json') && 
+                       (selectedYear === 'all' || file.name.includes(selectedYear));
+            });
+            
+            addressData.clear();
+            $("#locationTable").empty();
+            
+            processFiles(jsonFiles);
+        });
+
+        $("#minDuration").on('input', (event) => {
+            const currentValue = parseInt($("#minDuration").val(), 10);
+            if (currentValue < 10) {
+                $("#minDuration").val(10);
+            }
+        });
+
+        $("#btnApplyFilter").on('click', applyFilter);
+
+        function processFiles(files) {
+            const filePromises = files.map(file => {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        parseInput(e.target.result);
+                        resolve();
+                    };
+                    reader.onerror = reject;
+                    reader.readAsText(file);
+                });
+            });
+
+            Promise.all(filePromises).then(() => {
+                populateTable(addressData);
+                updateMap();
+            }).catch(error => {
+                console.error("Error processing files:", error);
+                alert("An error occurred while processing the files.");
+            });
+        }
+
+        function applyFilter() {
+            const minDuration = parseInt($("#minDuration").val(), 10) || 10;
+            const filteredAddressData = filterAddressData(addressData, minDuration);
+            populateTable(filteredAddressData);
+            updateMap(filteredAddressData);
+        }
+
+        function parseInput(rawInput) {
+            let data = JSON.parse(rawInput);
+            if (typeof data.timelineObjects === "undefined") {
+                console.warn("Invalid data: must contain 'timelineObjects' array.");
+                return;
+            }
+            for (let d of data.timelineObjects) {
+                if (typeof d.placeVisit === "undefined") continue;
+
+                const place = d.placeVisit;
+                const start = moment(place.duration.startTimestamp);
+                const end = moment(place.duration.endTimestamp);
+                const durationMinutes = end.diff(start, "minutes");
+
+                const year = start.year();
+                const rawAddress = place.location.address || "Unknown Location";
+                const normalizedAddress = normalizeAddress(rawAddress);
+                const country = extractCountryFromAddress(rawAddress);
+                const city = extractCityFromAddress(rawAddress);
+                const lat = parseFloat((place.location.latitudeE7 / 10000000.0).toFixed(4));
+                const lng = parseFloat((place.location.longitudeE7 / 10000000.0).toFixed(4));
+                const placeId = place.location.placeId || "Unknown";
+                const startTimestamp = place.duration.startTimestamp;
+
+                if (addressData.has(normalizedAddress)) {
+                    const existing = addressData.get(normalizedAddress);
+                    existing.repeatCount += 1;
+                    existing.years.add(year);
+                    existing.durationMinutes = Math.max(existing.durationMinutes, durationMinutes);
+                    existing.visits.push({ timestamp: start.valueOf(), lat, lng });
+                    existing.lastVisit = Math.max(existing.lastVisit, start.valueOf());
+                } else {
+                    addressData.set(normalizedAddress, {
+                        address: rawAddress,
+                        country,
+                        city,
+                        repeatCount: 1,
+                        years: new Set([year]),
+                        longitude: lng,
+                        latitude: lat,
+                        durationMinutes: durationMinutes,
+                        visits: [{ timestamp: start.valueOf(), lat, lng }],
+                        lastVisit: start.valueOf(),
+                        placeId: placeId,
+                        startTimestamp: startTimestamp
+                    });
+                }
+            }
+        }
+
+        function filterAddressData(addressData, minDuration) {
+            let filteredData = new Map();
+            addressData.forEach((value, key) => {
+                if (value.durationMinutes >= minDuration) {
+                    filteredData.set(key, value);
+                }
+            });
+            return filteredData;
+        }
+
+
+      function isValidAddress(address) {
+          // Split the address into components
+          const components = address.split(',').map(comp => comp.trim());
+          
+          // Check if we have at least 4 components (street, city, state+zip, country)
+          if (components.length < 4) return false;
+          
+          // Check if the last component is a country
+          if (components[components.length - 1] !== "USA") return false;
+          
+          // Check if the second-to-last component has both state and zip
+          const stateZip = components[components.length - 2].split(' ');
+          if (stateZip.length !== 2 || stateZip[1].length !== 5) return false;
+          
+          return true;
+      }
+
+
+        function populateTable(data) {
+          $("#locationTable").empty();
+          visitedAddresses.clear();
+          const sortedData = Array.from(data.entries()).sort((a, b) => b[1].lastVisit - a[1].lastVisit);
+          
+          sortedData.forEach(([normalizedAddress, addr]) => {
+              if (isValidAddress(addr.address) && !visitedAddresses.has(addr.address)) {
+                  visitedAddresses.add(addr.address);
+                  
+                  let row = $("<tr>");
+                  row.append($("<td>").text(addr.address).attr('title', addr.address));
+                  row.append($("<td>").text(addr.country));
+                  row.append($("<td>").text(addr.city));
+                  row.append($("<td>").text(addr.repeatCount));
+                  row.append($("<td>").text(Array.from(addr.years).sort((a, b) => b - a).join(', ')));
+                  row.append($("<td>").text(addr.longitude));
+                  row.append($("<td>").text(addr.latitude));
+                  row.append($("<td>").html('<input type="checkbox" class="selected">'));
+                  row.on('click', () => {
+                      flyToLocation(addr.latitude, addr.longitude);
+                      showPlaceDetails(addr);
+                  });
+                  $("#locationTable").append(row);
+              }
+          });
+      }
+
+        
+        function updateMap(data = addressData) {
+            customElements.whenDefined(polyline3d.localName).then(async () => {
+                const { Marker3DElement } = await google.maps.importLibrary("maps3d");
+                const { PinElement } = await google.maps.importLibrary("marker");
+
+                const polyline3d = document.querySelector('gmp-map-3d gmp-polyline-3d');
+
+                // Remove existing markers
+                map3d.querySelectorAll('gmp-marker-3d').forEach(marker => marker.remove());
+                flyingCamera.querySelectorAll('gmp-marker-3d').forEach(marker => marker.remove());
+
+                // Sort all visits chronologically
+                const allVisits = Array.from(data.values())
+                    .flatMap(addr => addr.visits)
+                    .sort((a, b) => a.timestamp - b.timestamp);
+
+                // Create chronological polyline
+                const chronologicalCoordinates = allVisits.map(visit => ({
+                    lat: visit.lat,
+                    lng: visit.lng
+                }));
+                polyline3d.coordinates = chronologicalCoordinates;
+
+                // Update polygon visibility
+                updatePolygonVisibility();
+
+                // Add markers for unique locations
+                const uniqueLocations = new Map();
+                Array.from(data.values()).forEach((addr) => {
+                    const key = `${addr.latitude},${addr.longitude}`;
+                    if (!uniqueLocations.has(key)) {
+                        uniqueLocations.set(key, {
+                            position: { lat: addr.latitude, lng: addr.longitude },
+                            repeatCount: addr.repeatCount
+                        });
+                    } else {
+                        // If the location already exists, update the repeat count
+                        uniqueLocations.get(key).repeatCount += addr.repeatCount;
+                    }
+                });
+
+                uniqueLocations.forEach((location, key) => {
+                    const pin = new PinElement({
+                        background: '#4285F4',
+                        borderColor: '#1967D2',
+                        glyphColor: 'white',
+                        glyph: location.repeatCount.toString(),
+                    });
+
+                    const marker = new Marker3DElement({
+                        position: location.position,
+                    });
+
+                    marker.append(pin);
+                    map3d.append(marker);
+
+                    const flyingCameraPin = new PinElement({
+                        background: '#5DADE2',
+                        borderColor: '#EBEDEF',
+                        glyphColor: 'white',
+                        glyph: location.repeatCount.toString(),
+                    });
+
+                    const flyingCameraMarker = new Marker3DElement({
+                        position: location.position,
+                    });
+                    flyingCameraMarker.append(flyingCameraPin);
+                    flyingCamera.append(flyingCameraMarker);
+                });
+
+                // Adjust the map view to fit all points
+                if (chronologicalCoordinates.length > 0) {
+                    const bounds = new google.maps.LatLngBounds();
+                    chronologicalCoordinates.forEach(coord => bounds.extend(coord));
+                    const center = bounds.getCenter();
+                    map3d.setAttribute('center', `${center.lat()},${center.lng()},15000000`);
+                }
+            });
+        }
+
+        function normalizeAddress(address) {
+            return address
+                .toLowerCase()
+                .trim()
+                .replace(/\s+/g, " ");
+        }
+
+        function extractCountryFromAddress(address) {
+            const parts = address.split(", ");
+            return parts[parts.length - 1] || "Unknown Country";
+        }
+
+        function extractCityFromAddress(address) {
+            const parts = address.split(", ");
+            return parts.length > 2 ? parts[parts.length - 3] : "Unknown City";
+        }
+
+        function sortTable(columnIndex) {
+            const rows = Array.from(document.querySelectorAll("#locationTable tr"));
+
+            const sortOrder = rows[0]?.classList.contains("sorted-asc") ? -1 : 1;
+
+            rows.sort((a, b) => {
+                const aValue = a.cells[columnIndex].innerText.trim();
+                const bValue = b.cells[columnIndex].innerText.trim();
+                return aValue.localeCompare(bValue) * sortOrder;
+            });
+
+            rows.forEach(row => $("#locationTable").append(row));
+        }
+
+
+async function showPlaceDetails(addr) {
+    const container = document.getElementById("placeDetailsContent");
+    container.innerHTML = "";
+
+    const placeBox = document.createElement("div");
+    placeBox.classList.add("place-details");
+
+    const arrivalTime = moment(addr.startTimestamp).format('MMMM Do YYYY, h:mm:ss a');
+    const placeDetails = `
+        <p><strong>Address:</strong> ${addr.address}</p>
+        <p><strong>Country:</strong> ${addr.country}</p>
+        <p><strong>City:</strong> ${addr.city}</p>
+        <p><strong>Repeat Count:</strong> ${addr.repeatCount}</p>
+        <p><strong>Years Visited:</strong> ${Array.from(addr.years).sort((a, b) => b - a).join(', ')}</p>
+        <p><strong>Coordinates:</strong> ${addr.latitude}, ${addr.longitude}</p>
+        <p><strong>Last Arrival:</strong> ${arrivalTime}</p>
+    `;
+
+    placeBox.innerHTML = placeDetails;
+    container.appendChild(placeBox);
+
+    document.getElementById("placeDetailsPopup").style.display = "block"; 
+
+
+      const promptFacts = `Based on the following information about a place, provide a brief, creative and fun recommendation or interesting fact, Keep it concise, around 
+          100 words. Return your answer in HTML format with appropriate tags <p></p>. 
+          Name: ${addr.address}
+          Country: ${addr.country}
+          City: ${addr.city}
+          Repeat Count: ${addr.repeatCount}
+          Years Visited: ${Array.from(addr.years).sort((a, b) => b - a).join(', ')}
+          Coordinates: ${addr.latitude}, ${addr.longitude}
+          Last Arrival Time: ${arrivalTime}`;
+
+    const promptPlaces = `Based on the following information about a place, list 10 nearby nice places to visit that are NOT in this list: ${visitedAddressesArray.join(', ')}. ALWAYS use this format for each 
+    suggestion: index number + place name: Place description. It must be a very brief description of this place.
+          Name: ${addr.address}
+          Country: ${addr.country}
+          City: ${addr.city}
+          Repeat Count: ${addr.repeatCount}
+          Years Visited: ${Array.from(addr.years).sort((a, b) => b - a).join(', ')}
+          Coordinates: ${addr.latitude}, ${addr.longitude}
+          Last Arrival Time: ${arrivalTime}
+          please do not include any extra comment or question`;
+
+    try {
+
+        // Start by checking if it's possible to create a session based on the availability of the model, and the characteristics of the device.
+        const {available, defaultTemperature, defaultTopK, maxTopK } = await ai.languageModel.capabilities();
+
+        if (available !== "no") {
+
+            // Add "Generating..." label for facts
+            const generatingFactsLabel = document.createElement('p');
+            generatingFactsLabel.textContent = "Generating Facts...";
+            placeBox.appendChild(generatingFactsLabel);
+
+            const session = await ai.languageModel.create();
+
+            // Fetch and display aiResponseFacts
+            const aiResponseFacts = await session.prompt(promptFacts);
+            //console.log(aiResponseFacts);
+
+            // Remove "Generating..." label for facts
+            generatingFactsLabel.remove();
+
+            // Create and append aiResponseDiv
+            const aiResponseDiv = document.createElement('div');
+            aiResponseDiv.innerHTML = `<p>${aiResponseFacts}</p>`;
+            aiResponseDiv.style.marginBottom = '15px';
+            placeBox.appendChild(aiResponseDiv);
+
+
+            // Add "Generating..." label for places
+            const generatingLabel = document.createElement('p');
+            generatingLabel.textContent = "Generating places...";
+            placeBox.appendChild(generatingLabel);
+
+            // Create the table for places
+            const table = document.createElement('table');
+            table.style.borderCollapse = 'collapse';
+            table.style.width = '100%';
+
+            // Add the header row
+            const headerRow = document.createElement('tr');
+            headerRow.innerHTML = `<td colspan="2" style="border: none; padding: 5px;"><strong>Nearby Places to Visit:</strong></td>`;
+            table.appendChild(headerRow);
+
+            // Append the table to the container
+            placeBox.appendChild(table);
+
+            let aiResponsePlaces = '';
+            let previousChunk = '';
+
+            const stream = session.promptStreaming(promptPlaces);
+            for await (const chunk of stream) {
+                const newChunk = chunk.startsWith(previousChunk)
+                    ? chunk.slice(previousChunk.length)
+                    : chunk;
+
+                //console.log(newChunk);
+                aiResponsePlaces += newChunk;
+                previousChunk = chunk;
+
+                // Extract list items from the current aiResponsePlaces
+                const placesMatch = aiResponsePlaces.match(/\d+\.\s*(.*)/g);
+                if (placesMatch) {
+                    // Clear all rows except the header to avoid duplication
+                    table.innerHTML = '';
+                    table.appendChild(headerRow);
+
+                    // Add rows for each place
+                    placesMatch.forEach((match, index) => {
+                        const placeMatch = match.match(/(\d+\.\s*.*?):\s*(.*)/);
+                        if (placeMatch) {
+                            const [, nameWithNumber, description] = placeMatch;
+                            const name = nameWithNumber.replace(/^\d+\.\s*/, '').trim();
+
+                            const row = document.createElement('tr');
+                            row.innerHTML = `
+                                <td style="border: none; padding: 5px;">
+                                    <span class="place-name">${index + 1}. ${name}</span><br>
+                                    <small class="place-description">${description.trim()}</small>
+                                </td>
+                                <td style="border: none; padding: 5px; text-align: right; vertical-align: top;">
+                                    <button onclick="takeMeThere('${name}')" style="padding: 2px 5px; font-size: 12px;">Take me there</button>
+                                </td>
+                            `;
+                            table.appendChild(row);
+                        }
+                    });
+                }
+            }
+
+            // Remove "Generating..." label after streaming completes
+            generatingLabel.remove();
+
+
+
+        }else {
+            console.log("Model no ready");
+        }
+
+    } catch (error) {
+        console.error("Error calling Gemini AI:", error);
+        const errorMessage = document.createElement("p");
+        errorMessage.textContent = "Unable to generate nearby places at this time.";
+        placeBox.appendChild(errorMessage);
+    }
+
+    document.getElementById("placeDetailsPopup").style.display = "block";
+}
+
+      async function generateAndDisplayRecommendation() {
+          const visitedAddressesArray = Array.from(visitedAddresses);
+          const promptGeneral = `Considering the places the person has already visited (${visitedAddressesArray.join(', ')}), suggest some new destinations they might not have explored yet and would be worthwhile to visit. 
+          Return your answer in HTML format with appropriate tags (do not use H1, or H2 tags, only use bold), but do not include the \`\`\`html and \`\`\` tags and be organized. Do some research about the places
+          he has been to, to recommend similar ones as well`;
+
+          try {
+              // Fetch aiResponsePlaces
+              const resultPlaces = await model.generateContent(promptGeneral);
+              const aiResponsePlaces = resultPlaces.response.text();
+
+
+              // Create and display the pop-up
+              const popup = $('<div>').addClass('recommendation-popup');
+              const content = $('<div>').addClass('recommendation-content');
+              const closeBtn = $('<button>').text('Close').addClass('close-btn');
+
+              //console.error('aiResponsePlaces Places log', aiResponsePlaces);
+              //console.error('promptGeneral log', promptGeneral);
+
+              content.append('<h2>Travel Recommendations</h2>');
+              content.append(aiResponsePlaces);
+              content.append(closeBtn);
+              popup.append(content);
+
+              $('body').append(popup);
+
+              // Center the popup
+              popup.css({
+                  'position': 'fixed',
+                  'top': '50%',
+                  'left': '50%',
+                  'transform': 'translate(-50%, -50%)',
+                  'background-color': 'white',
+                  'padding': '20px',
+                  'border-radius': '10px',
+                  'box-shadow': '0 0 10px rgba(0,0,0,0.1)',
+                  'z-index': '1000',
+                  'max-width': '80%',
+                  'max-height': '80%',
+                  'overflow-y': 'auto'
+              });
+
+              // Close button functionality
+              closeBtn.on('click', function() {
+                  popup.remove();
+              });
+          } catch (error) {
+              console.error('Error generating recommendation:', error);
+          }
+      }
+
+
+        async function takeMeThere(placeName) {
+            try {
+                const coordinates = await findPlaceCoordinates(placeName);
+                if (coordinates) {
+                    flyToLocation(coordinates.lat, coordinates.lng);
+                } else {
+                    console.error("Unable to find coordinates for:", placeName);
+                    alert("Unable to find the location. Please try a different place name.");
+                }
+            } catch (error) {
+                console.error("Error in takeMeThere:", error);
+                alert("An error occurred while trying to locate the place.");
+            }
+        }
+
+        function findPlaceCoordinates(placeName) {
+            return new Promise((resolve, reject) => {
+                const service = new google.maps.places.PlacesService(document.createElement("div"));
+
+                const request = {
+                    query: placeName,
+                    fields: ["geometry.location"],
+                };
+
+                service.findPlaceFromQuery(request, (results, status) => {
+                    if (status === google.maps.places.PlacesServiceStatus.OK && results.length > 0) {
+                        const location = results[0].geometry.location;
+                        resolve({ lat: location.lat(), lng: location.lng() });
+                    } else {
+                        console.error("Place not found or error:", status);
+                        resolve(null);
+                    }
+                });
+            });
+        }
+
+      // Make sure to expose the takeMeThere function to the global scope
+      window.takeMeThere = takeMeThere;
+
+        function closePlaceDetailsPopup() {
+            document.getElementById("placeDetailsPopup").style.display = "none";
+        }
+
+        window.sortTable = sortTable;
+        window.closePlaceDetailsPopup = closePlaceDetailsPopup;
+
+        let isResizing = false;
+        let startX, startWidth;
+
+        $('table th:first-child').mousedown(function(e) {
+            isResizing = true;
+            startX = e.pageX;
+            startWidth = $(this).width();
+        });
+
+        $(document).mousemove(function(e) {
+            if (!isResizing) return;
+            let width = startWidth + (e.pageX - startX);
+            $('table th:first-child, table td:first-child').css('width', width + 'px');
+        }).mouseup(function() {
+            isResizing = false;
+        });
+
+        // Show the modal when the page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('welcomeModal').style.display = 'block';
+        });
+        // Close the modal when the close button is clicked
+        document.getElementById('closeModal').onclick = function() {
+            document.getElementById('welcomeModal').style.display = 'none';
+        }
+
+        // Close the modal if the user clicks outside of it
+        window.onclick = function(event) {
+            if (event.target == document.getElementById('welcomeModal')) {
+                document.getElementById('welcomeModal').style.display = 'none';
+            }
+        }
+
+        $(document).ready(function() {
+            $('#recommendationBtn').on('click', generateAndDisplayRecommendation);
+        });
+    </script>
+</body>
+</html>
