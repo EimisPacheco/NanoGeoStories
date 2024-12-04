@@ -6,12 +6,14 @@ Visit Google Takeout.
 Deselect all products except Location History.
 Choose your preferred file format (JSON is mandatory for this app).
 Click Create Export and download the file once it's ready.
+
 2. Upload Location History to GeoStories:
 
-Go to https://eimispacheco.github.io/GeoStories/geoStories.html. Note: in the pop up that says "Using the alpha channel of the Google Maps JavaScript API. For development purposes only." just click on Dismiss
+Go to https://eimispacheco.github.io/NanoGeoStories/ Note: in the pop up that says "Using the alpha channel of the Google Maps JavaScript API. For development purposes only." just click on Dismiss
 When loading this will ask you for your location, click on allowed button.
 Select a Year to see the places you have been to that year or "All years" to bring all the places for all the years.
 Click Import Data Button and select the downloaded "Semantic Location History" folder and click on Upload button.
+
 3. Explore Your Travel History:
 
 Once uploaded, your travel history will be displayed on the 3D map.
